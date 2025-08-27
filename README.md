@@ -1,470 +1,214 @@
-# MNIST Model Serving with TensorFlow Serving
+# TensorFlow Serving ML Pipeline with Automated Retraining
 
-A production-ready machine learning system for serving MNIST digit classification models with automated retraining, monitoring, and deployment capabilities.
+A complete machine learning pipeline featuring TensorFlow model training, serving via TF Serving + Docker, and automated weekly retraining with accuracy gates.
 
-## 🏗️ Architecture Overview
+## 🏗️ Architecture
 
 \`\`\`
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Client Apps   │───▶│  TF Serving API  │───▶│  MNIST Model    │
+│   Trainer       │    │  TF Serving      │    │   Frontend      │
+│   Container     │────│  Container       │────│   Container     │
+│                 │    │  (REST + gRPC)   │    │   (Flask API)   │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
-                              │
-                              ▼
-                       ┌──────────────────┐
-                       │   Prometheus     │
-                       │   Monitoring     │
-                       └──────────────────┘
-                              │
-                              ▼
-                       ┌──────────────────┐
-                       │ Weekly Retrain   │
-                       │ Pipeline (97%+)  │
-                       └──────────────────┘
+         │                       │                       │
+         │              ┌──────────────────┐             │
+         └──────────────│  Prometheus      │─────────────┘
+                        │  Monitoring      │
+                        └──────────────────┘
 \`\`\`
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 - Docker & Docker Compose
-- Python 3.8+
-- TensorFlow 2.x
+- Python 3.11+ (for local development)
 
-### 1. Train Initial Model
+### Launch the Complete Pipeline
 \`\`\`bash
-python train_model.py
+# Start all services (trainer, TF Serving, frontend, monitoring)
+docker-compose up -d
+
+# Check service status
+docker-compose ps
+
+# View logs
+docker-compose logs -f
 \`\`\`
 
-### 2. Build and Start Services
+### Access Points
+- **Frontend Web UI**: http://localhost:5002
+- **TF Serving REST API**: http://localhost:8501
+- **TF Serving gRPC**: localhost:8500
+- **Prometheus Metrics**: http://localhost:8501/monitoring/prometheus/metrics
+
+## 📊 Model Training & Deployment
+
+### Automated Retraining Pipeline
+The system includes an automated retraining pipeline with quality gates:
+
 \`\`\`bash
-bash scripts/build.sh
-bash scripts/run.sh
+# Manual training trigger
+python retrain_pipeline.py
+
+# Or use the convenience script
+./scripts/manual_train.sh
 \`\`\`
 
-### 3. Test the API
+### Accuracy Gate System
+- **Threshold**: 97% accuracy (configurable in `config.json`)
+- **Promotion**: Models meeting the threshold are automatically deployed
+- **Rollback**: Failing models are rejected, previous version remains active
+- **Notifications**: All decisions logged to `notifications.log`
+
+### Model Versioning
+- Models stored in `models/{version}/` directories
+- TF Serving automatically serves the highest version number
+- Each model includes `metrics.json` with performance data
+
+## 🔌 API Documentation
+
+### Prediction Endpoint
+
+**POST /predict**
+
+Make predictions using the deployed model.
+
+#### JSON Request Format
 \`\`\`bash
-bash scripts/test_api.sh
+curl -X POST http://localhost:5002/predict \
+  -H "Content-Type: application/json" \
+  -d '{"instances": [[1.5, 2.3], [0.8, -1.2]]}'
 \`\`\`
 
-## 📡 API Documentation
-
-### Base URLs
-- **REST API**: `http://localhost:8501`
-- **gRPC API**: `localhost:8500`
-- **Prometheus Metrics**: `http://localhost:9090`
-
-### Endpoints
-
-#### 1. Model Metadata
-Get information about the served model.
-
-**Request:**
+#### Form Request Format
 \`\`\`bash
-GET /v1/models/mnist_model/metadata
+curl -X POST http://localhost:5002/predict \
+  -d "x1=1.5&x2=2.3"
 \`\`\`
 
-**Response:**
+#### Response Format
 \`\`\`json
 {
-  "model_spec": {
-    "name": "mnist_model",
-    "signature_name": "",
-    "version": "1"
+  "predictions": [[0.8234567], [0.1234567]]
+}
+\`\`\`
+
+### Direct TensorFlow Serving API
+
+**POST http://localhost:8501/v1/models/simple_classifier:predict**
+
+\`\`\`bash
+curl -X POST http://localhost:8501/v1/models/simple_classifier:predict \
+  -H "Content-Type: application/json" \
+  -d '{"instances": [[1.5, 2.3]]}'
+\`\`\`
+
+## ⚙️ Configuration
+
+### Model Configuration (`config.json`)
+\`\`\`json
+{
+  "model_name": "simple_classifier",
+  "gate": {
+    "min_accuracy_percent": 97.0
   },
-  "metadata": {
-    "signature_def": {
-      "signature_def": {
-        "serving_default": {
-          "inputs": {
-            "input_1": {
-              "dtype": "DT_FLOAT",
-              "tensor_shape": {
-                "dim": [
-                  {"size": "-1", "name": ""},
-                  {"size": "28", "name": ""},
-                  {"size": "28", "name": ""},
-                  {"size": "1", "name": ""}
-                ]
-              }
-            }
-          },
-          "outputs": {
-            "dense_1": {
-              "dtype": "DT_FLOAT",
-              "tensor_shape": {
-                "dim": [
-                  {"size": "-1", "name": ""},
-                  {"size": "10", "name": ""}
-                ]
-              }
-            }
-          }
-        }
-      }
-    }
+  "train": {
+    "epochs": 20,
+    "batch_size": 32,
+    "learning_rate": 0.01
   }
 }
-\`\`\`
-
-#### 2. Model Prediction
-Classify MNIST digit images.
-
-**Request:**
-\`\`\`bash
-POST /v1/models/mnist_model:predict
-Content-Type: application/json
-\`\`\`
-
-**Request Body:**
-\`\`\`json
-{
-  "instances": [
-    [[[0.0], [0.0], ..., [1.0]], 
-     [[0.0], [0.1], ..., [0.9]], 
-     ...
-     [[0.0], [0.0], ..., [0.0]]]
-  ]
-}
-\`\`\`
-
-**Response:**
-\`\`\`json
-{
-  "predictions": [
-    [0.001, 0.002, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.989, 0.001]
-  ]
-}
-\`\`\`
-
-#### 3. Health Check
-Check if the model server is healthy.
-
-**Request:**
-\`\`\`bash
-GET /v1/models/mnist_model
-\`\`\`
-
-**Response:**
-\`\`\`json
-{
-  "model_version_status": [
-    {
-      "version": "1",
-      "state": "AVAILABLE",
-      "status": {
-        "error_code": "OK",
-        "error_message": ""
-      }
-    }
-  ]
-}
-\`\`\`
-
-## 🔧 Sample Requests
-
-### Python Client Example
-\`\`\`python
-import requests
-import numpy as np
-import json
-
-# Create sample 28x28 image
-image = np.random.rand(28, 28, 1).tolist()
-
-# Prepare request
-url = "http://localhost:8501/v1/models/mnist_model:predict"
-data = {"instances": [image]}
-
-# Make prediction
-response = requests.post(url, json=data)
-predictions = response.json()["predictions"][0]
-
-# Get predicted digit
-predicted_digit = np.argmax(predictions)
-confidence = predictions[predicted_digit]
-
-print(f"Predicted digit: {predicted_digit}")
-print(f"Confidence: {confidence:.4f}")
-\`\`\`
-
-### cURL Example
-\`\`\`bash
-# Create test data
-echo '{
-  "instances": [
-    [[[0.0], [0.0]], [[0.0], [0.0]]]
-  ]
-}' > test_data.json
-
-# Make prediction
-curl -X POST \
-  http://localhost:8501/v1/models/mnist_model:predict \
-  -H 'Content-Type: application/json' \
-  -d @test_data.json
-\`\`\`
-
-### JavaScript/Node.js Example
-\`\`\`javascript
-const axios = require('axios');
-
-async function predictDigit(imageData) {
-  try {
-    const response = await axios.post(
-      'http://localhost:8501/v1/models/mnist_model:predict',
-      { instances: [imageData] },
-      { headers: { 'Content-Type': 'application/json' } }
-    );
-    
-    const predictions = response.data.predictions[0];
-    const predictedDigit = predictions.indexOf(Math.max(...predictions));
-    
-    return {
-      digit: predictedDigit,
-      confidence: predictions[predictedDigit],
-      allProbabilities: predictions
-    };
-  } catch (error) {
-    console.error('Prediction failed:', error.message);
-    throw error;
-  }
-}
-\`\`\`
-
-## 📊 Monitoring & Metrics
-
-### Prometheus Metrics
-Access metrics at: `http://localhost:9090`
-
-#### Key Metrics:
-- `tensorflow_serving_request_count` - Total requests processed
-- `tensorflow_serving_request_latency` - Request processing time
-- `tensorflow_serving_model_warmup_latency` - Model loading time
-- `tensorflow_serving_batch_size` - Batch processing metrics
-
-### Custom Application Metrics
-\`\`\`python
-# Example: Adding custom metrics to your application
-from prometheus_client import Counter, Histogram, Gauge
-
-# Request counters
-prediction_requests = Counter('mnist_predictions_total', 'Total predictions made')
-failed_requests = Counter('mnist_prediction_failures_total', 'Failed predictions')
-
-# Latency histogram
-prediction_latency = Histogram('mnist_prediction_duration_seconds', 'Prediction latency')
-
-# Model accuracy gauge
-model_accuracy = Gauge('mnist_model_accuracy', 'Current model accuracy')
-\`\`\`
-
-### Grafana Dashboard Setup
-1. Connect Grafana to Prometheus: `http://prometheus:9090`
-2. Import dashboard configuration from `monitoring/grafana-dashboard.json`
-3. Key panels:
-   - Request rate and latency
-   - Model accuracy over time
-   - Error rates
-   - System resource usage
-
-## 🔄 Retraining Pipeline
-
-### Automated Weekly Retraining
-The system automatically retrains the model weekly with an accuracy gate:
-
-- **Trigger**: Every Monday at 2 AM UTC
-- **Accuracy Threshold**: 97%
-- **Promotion**: New model promoted only if accuracy ≥ 97%
-- **Rollback**: Previous version maintained if new model fails
-
-### Manual Retraining
-\`\`\`bash
-# Run retraining pipeline
-bash scripts/retrain.sh
-
-# Run with custom parameters
-python retrain_pipeline.py --epochs 15 --config config.json
-\`\`\`
-
-### Configuration
-Edit `config.json` to customize:
-\`\`\`json
-{
-  "accuracy_threshold": 0.97,
-  "training_config": {
-    "epochs": 10,
-    "batch_size": 32
-  },
-  "notification_config": {
-    "enabled": true
-  }
-}
-\`\`\`
-
-## 🔐 Authentication & Security
-
-### API Authentication (Optional)
-For production deployments, implement authentication:
-
-\`\`\`python
-# Example: JWT token validation
-import jwt
-from functools import wraps
-
-def require_auth(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        token = request.headers.get('Authorization')
-        if not token:
-            return {'error': 'No token provided'}, 401
-        
-        try:
-            jwt.decode(token, 'your-secret-key', algorithms=['HS256'])
-        except jwt.InvalidTokenError:
-            return {'error': 'Invalid token'}, 401
-            
-        return f(*args, **kwargs)
-    return decorated_function
 \`\`\`
 
 ### Environment Variables
-Set these environment variables for secure operation:
+- `TF_HOST`: TensorFlow Serving host (default: http://localhost:8501)
+- `MODEL_NAME`: Model name for serving (default: simple_classifier)
+- `TF_CPP_MIN_LOG_LEVEL`: TensorFlow logging level
 
+## 📈 Monitoring & Metrics
+
+### Prometheus Integration
+- TF Serving exposes metrics on `/monitoring/prometheus/metrics`
+- Automatic model performance tracking
+- Request/response metrics and latencies
+
+### Model Metrics
+Each trained model includes comprehensive metrics:
+- Test accuracy percentage
+- Training loss
+- Timestamp and version info
+- Dataset characteristics
+
+## 🔄 Weekly Retraining Setup
+
+### Automated Scheduling (Cron)
+Add to your crontab for weekly retraining:
 \`\`\`bash
-# Email notifications
-export SENDER_EMAIL="alerts@company.com"
-export SENDER_PASSWORD="app-specific-password"
-export RECIPIENT_EMAIL="admin@company.com"
-
-# Optional: API authentication
-export JWT_SECRET_KEY="your-secret-key"
-export API_KEY="your-api-key"
+# Run every Sunday at 2 AM
+0 2 * * 0 cd /path/to/project && python retrain_pipeline.py
 \`\`\`
 
-## 🔄 Model Promotion & Rollback
+### GitHub Actions (CI/CD)
+Automated workflows for testing and deployment are configured in `.github/workflows/`.
 
-### Promotion Process
-1. New model trained and evaluated
-2. Accuracy check against 97% threshold
-3. Backup current model version
-4. Promote new model if threshold met
-5. Update serving containers
-6. Send notification
+## 🛠️ Development
 
-### Manual Rollback
-\`\`\`python
-# Rollback to previous version
-from retrain_pipeline import ModelRetrainer
+### Local Development Setup
+\`\`\`bash
+# Install dependencies
+pip install -r requirements.frontend.txt
 
-retrainer = ModelRetrainer()
-retrainer.rollback_model(target_version=1)
+# Run training locally
+python train_tf.py
+
+# Start Flask app locally
+python app.py
 \`\`\`
 
-### Version Management
+### Manual Operations
 \`\`\`bash
-# List all model versions
-ls models/mnist_model/
+# Train a new model version
+./scripts/manual_train.sh
 
-# Check model metadata
-cat models/mnist_model/metadata_v2.json
+# Start all services
+./scripts/run_all.sh
 
-# View backup models
-ls models/backups/
+# View training logs
+cat last_train_log.txt
+
+# Check notifications
+cat notifications.log
 \`\`\`
 
 ## 🚨 Troubleshooting
 
 ### Common Issues
+1. **Port conflicts**: Ensure ports 5002, 8500, 8501 are available
+2. **Model loading**: Check `docker-compose logs tfserving` for TF Serving issues
+3. **Training failures**: Review `last_train_log.txt` for training errors
 
-#### 1. Model Not Loading
+### Health Checks
 \`\`\`bash
-# Check model directory structure
-ls -la models/mnist_model/1/
+# Check TF Serving health
+curl http://localhost:8501/v1/models/simple_classifier
 
-# Verify SavedModel format
-saved_model_cli show --dir models/mnist_model/1 --all
+# Test prediction endpoint
+curl -X POST http://localhost:5002/predict -d "x1=1&x2=1"
 \`\`\`
 
-#### 2. Docker Build Fails
-\`\`\`bash
-# Check Docker daemon
-docker info
-
-# Rebuild with verbose output
-docker build -t mnist-serving:latest . --no-cache
+## 📋 Project Structure
 \`\`\`
-
-#### 3. Low Accuracy During Retraining
-- Check training data quality
-- Verify preprocessing steps
-- Adjust hyperparameters in `config.json`
-- Review training logs in `retrain.log`
-
-#### 4. API Connection Issues
-\`\`\`bash
-# Test connectivity
-curl -f http://localhost:8501/v1/models/mnist_model
-
-# Check container logs
-docker-compose logs mnist-serving
+├── models/                 # Versioned TensorFlow SavedModels
+├── scripts/               # Training and deployment scripts
+├── monitoring/            # Prometheus configuration
+├── templates/             # Flask HTML templates
+├── .github/workflows/     # CI/CD automation
+├── docker-compose.yml     # Service orchestration
+├── retrain_pipeline.py    # Automated retraining with gates
+├── train_tf.py           # Model training script
+├── app.py                # Flask prediction API
+└── config.json           # Model and training configuration
 \`\`\`
-
-### Logs and Debugging
-\`\`\`bash
-# View application logs
-tail -f retrain.log
-
-# Docker container logs
-docker-compose logs -f mnist-serving
-
-# Prometheus metrics
-curl http://localhost:8501/monitoring/prometheus/metrics
-\`\`\`
-
-## 📈 Performance Optimization
-
-### Batch Processing
-\`\`\`python
-# Process multiple images at once
-data = {"instances": [image1, image2, image3, ...]}
-response = requests.post(url, json=data)
-\`\`\`
-
-### Model Optimization
-- Use TensorFlow Lite for mobile deployment
-- Implement model quantization for faster inference
-- Consider TensorRT for GPU acceleration
-
-### Scaling
-\`\`\`yaml
-# docker-compose.yml - Scale serving instances
-services:
-  mnist-serving:
-    deploy:
-      replicas: 3
-    ports:
-      - "8501-8503:8501"
-\`\`\`
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch: `git checkout -b feature/new-feature`
-3. Commit changes: `git commit -am 'Add new feature'`
-4. Push to branch: `git push origin feature/new-feature`
-5. Submit pull request
 
 ## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 📞 Support
-
-For issues and questions:
-- Create an issue on GitHub
-- Check troubleshooting section
-- Review logs for error details
-
----
-
-**Last Updated**: $(date)
-**Version**: 1.0.0
-# model-deployment-mentaninance
+MIT License - see LICENSE file for details.

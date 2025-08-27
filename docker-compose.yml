@@ -1,40 +1,37 @@
-version: '3.8'
-
+version: "3.9"
 services:
-  mnist-serving:
-    build: .
-    container_name: mnist-serving
-    ports:
-      - "8500:8500"  # gRPC
-      - "8501:8501"  # REST API
+  trainer:
+    build:
+      context: .
+      dockerfile: Dockerfile.trainer
     volumes:
-      - ./models:/models
-      - ./monitoring.config:/models/monitoring.config
+      - ./models:/app/models
     environment:
-      - MODEL_NAME=mnist_model
-      - MODEL_BASE_PATH=/models/mnist_model
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8501/v1/models/mnist_model"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    restart: unless-stopped
-    
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: mnist-prometheus
+      - TF_CPP_MIN_LOG_LEVEL=2
+  tfserving:
+    image: tensorflow/serving:2.15.1
     ports:
-      - "9090:9090"
+      - "8501:8501"  # REST
+      - "8500:8500"  # gRPC
+    environment:
+      - MODEL_NAME=simple_classifier
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-    restart: unless-stopped
-
-networks:
-  default:
-    name: mnist-serving-network
+      - ./models:/models/simple_classifier
+      - ./monitoring/monitoring.config:/monitoring.config
+    command: >
+      --model_base_path=/models/simple_classifier
+      --model_name=simple_classifier
+      --monitoring_config_file=/monitoring.config
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "5002:5002"
+    depends_on:
+      - tfserving
+      - trainer
+    volumes:
+      - ./models:/app/models:ro
+      - ./templates:/app/templates:ro
+      - ./app.py:/app/app.py:ro

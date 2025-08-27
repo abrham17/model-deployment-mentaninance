@@ -1,19 +1,23 @@
 {
-  "model_base_path": "./models/mnist_model",
-  "backup_path": "./models/backups",
-  "accuracy_threshold": 0.97,
-  "training_config": {
-    "epochs": 5,
+  "project": "TF Serving Logistic Regression (simple synthetic data)",
+  "model_name": "simple_classifier",
+  "model_base_path": "models",
+  "current_version": 1,
+  "random_state": 42,
+  "dataset": {
+    "type": "synthetic_binary_classification",
+    "n_samples": 1000,
+    "n_features": 2,
+    "class_sep": 2.0,
+    "flip_y": 0.01
+  },
+  "train": {
+    "epochs": 20,
     "batch_size": 32,
+    "learning_rate": 0.01,
     "validation_split": 0.2
   },
-  "notification_config": {
-    "enabled": true,
-    "smtp_server": "smtp.gmail.com",
-    "smtp_port": 587
-  },
-  "monitoring": {
-    "log_level": "INFO",
-    "metrics_enabled": true
+  "gate": {
+    "min_accuracy_percent": 97.0
   }
 }
