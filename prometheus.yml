@@ -1,0 +1,10 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'tensorflow-serving'
+    static_configs:
+      - targets: ['mnist-serving:8501']
+    metrics_path: '/monitoring/prometheus/metrics'
+    scrape_interval: 5s

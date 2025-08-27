@@ -1,0 +1,19 @@
+{
+  "model_base_path": "./models/mnist_model",
+  "backup_path": "./models/backups",
+  "accuracy_threshold": 0.97,
+  "training_config": {
+    "epochs": 5,
+    "batch_size": 32,
+    "validation_split": 0.2
+  },
+  "notification_config": {
+    "enabled": true,
+    "smtp_server": "smtp.gmail.com",
+    "smtp_port": 587
+  },
+  "monitoring": {
+    "log_level": "INFO",
+    "metrics_enabled": true
+  }
+}

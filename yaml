@@ -1,0 +1,22 @@
+name: Weekly Retrain
+on:
+  schedule:
+    - cron: '0 2 * * 1'  # Weekly Monday 2 AM UTC
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+      - run: pip install tensorflow
+      - run: python retrain_pipeline.py
+      - name: Commit new model (if promoted)
+        run: |
+          git config --global user.name 'GitHub Action'
+          git config --global user.email 'action@github.com'
+          git add models/
+          git commit -m "Promote new model version" || echo "No changes"
+          git push
