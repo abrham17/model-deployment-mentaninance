@@ -2,22 +2,7 @@
 
 A complete machine learning pipeline featuring TensorFlow model training, serving via TF Serving + Docker, and automated weekly retraining with accuracy gates.
 
-## 🏗️ Architecture
-
-\`\`\`
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Trainer       │    │  TF Serving      │    │   Frontend      │
-│   Container     │────│  Container       │────│   Container     │
-│                 │    │  (REST + gRPC)   │    │   (Flask API)   │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-         │                       │                       │
-         │              ┌──────────────────┐             │
-         └──────────────│  Prometheus      │─────────────┘
-                        │  Monitoring      │
-                        └──────────────────┘
-\`\`\`
-
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Docker & Docker Compose
@@ -41,7 +26,7 @@ docker-compose logs -f
 - **TF Serving gRPC**: localhost:8500
 - **Prometheus Metrics**: http://localhost:8501/monitoring/prometheus/metrics
 
-## 📊 Model Training & Deployment
+##  Model Training & Deployment
 
 ### Automated Retraining Pipeline
 The system includes an automated retraining pipeline with quality gates:
@@ -65,7 +50,7 @@ python retrain_pipeline.py
 - TF Serving automatically serves the highest version number
 - Each model includes `metrics.json` with performance data
 
-## 🔌 API Documentation
+##  API Documentation
 
 ### Prediction Endpoint
 
@@ -103,7 +88,7 @@ curl -X POST http://localhost:8501/v1/models/simple_classifier:predict \
   -d '{"instances": [[1.5, 2.3]]}'
 \`\`\`
 
-## ⚙️ Configuration
+## ⚙ Configuration
 
 ### Model Configuration (`config.json`)
 \`\`\`json
@@ -125,7 +110,7 @@ curl -X POST http://localhost:8501/v1/models/simple_classifier:predict \
 - `MODEL_NAME`: Model name for serving (default: simple_classifier)
 - `TF_CPP_MIN_LOG_LEVEL`: TensorFlow logging level
 
-## 📈 Monitoring & Metrics
+##  Monitoring & Metrics
 
 ### Prometheus Integration
 - TF Serving exposes metrics on `/monitoring/prometheus/metrics`
@@ -139,7 +124,7 @@ Each trained model includes comprehensive metrics:
 - Timestamp and version info
 - Dataset characteristics
 
-## 🔄 Weekly Retraining Setup
+##  Weekly Retraining Setup
 
 ### Automated Scheduling (Cron)
 Add to your crontab for weekly retraining:
@@ -180,7 +165,7 @@ cat last_train_log.txt
 cat notifications.log
 \`\`\`
 
-## 🚨 Troubleshooting
+##  Troubleshooting
 
 ### Common Issues
 1. **Port conflicts**: Ensure ports 5002, 8500, 8501 are available
@@ -196,7 +181,7 @@ curl http://localhost:8501/v1/models/simple_classifier
 curl -X POST http://localhost:5002/predict -d "x1=1&x2=1"
 \`\`\`
 
-## 📋 Project Structure
+##  Project Structure
 \`\`\`
 ├── models/                 # Versioned TensorFlow SavedModels
 ├── scripts/               # Training and deployment scripts
