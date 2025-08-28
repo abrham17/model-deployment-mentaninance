@@ -1,12 +1,11 @@
 #!/bin/bash
 
-# Setup weekly retraining cron job
-# Run this script to install the cron job for automated weekly retraining
+# Setup retraining cron job every 5 minutes
+# Run this script to install the cron job for automated frequent retraining
 
 PROJECT_DIR=$(pwd)
-CRON_JOB="0 2 * * 0 cd $PROJECT_DIR && python retrain_pipeline.py >> $PROJECT_DIR/cron.log 2>&1"
-
-echo "Setting up weekly retraining cron job..."
+CRON_JOB="*/20 * * * * cd $PROJECT_DIR && python3 retrain_pipeline.py >> $PROJECT_DIR/cron.log 2>&1"
+echo "Setting up retraining cron job (every 5 minutes)..."
 echo "Project directory: $PROJECT_DIR"
 echo "Cron job: $CRON_JOB"
 
@@ -14,7 +13,7 @@ echo "Cron job: $CRON_JOB"
 (crontab -l 2>/dev/null | grep -v "retrain_pipeline.py"; echo "$CRON_JOB") | crontab -
 
 echo "Cron job installed successfully!"
-echo "The model will retrain every Sunday at 2:00 AM"
+echo "The model will retrain every 5 minutes"
 echo "Logs will be written to: $PROJECT_DIR/cron.log"
 
 # Create log file

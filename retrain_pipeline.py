@@ -1,5 +1,6 @@
 import json, os, shutil
 from pathlib import Path
+import json
 
 HERE = Path(__file__).parent
 with open(HERE / "config.json") as f:
@@ -10,7 +11,7 @@ model_name = cfg["model_name"]
 
 # Train a candidate
 print("Training candidate...")
-os.system(f"python {HERE / 'train_tf.py'} > {HERE / 'last_train_log.txt'}")
+os.system(f"python3 {HERE / 'train_tf.py'} > {HERE / 'last_train_log.txt'}")
 
 # Find versions
 versions = sorted([int(p.name) for p in model_base.iterdir() if p.is_dir() and p.name.isdigit()])
@@ -22,7 +23,6 @@ candidate = versions[-1]
 current = versions[-2] if len(versions) >= 2 else None
 
 # Read candidate metrics
-import json
 cand_metrics_path = model_base / str(candidate) / "metrics.json"
 with open(cand_metrics_path) as f:
     cand_metrics = json.load(f)

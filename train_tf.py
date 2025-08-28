@@ -31,7 +31,7 @@ model = tf.keras.Sequential([
     tf.keras.layers.Input(shape=(X.shape[1],)),
     tf.keras.layers.Dense(1, activation="sigmoid")
 ])
-opt = tf.keras.optimizers.legacy.SGD(learning_rate=cfg["train"].get("learning_rate", 0.01))
+opt = tf.keras.optimizers.SGD(learning_rate=cfg["train"].get("learning_rate", 0.01))
 model.compile(optimizer=opt, loss="binary_crossentropy", metrics=["accuracy"])
 
 history = model.fit(
